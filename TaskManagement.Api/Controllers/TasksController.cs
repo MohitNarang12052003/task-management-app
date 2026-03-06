@@ -4,12 +4,15 @@ using Microsoft.AspNetCore.Mvc;
 using TaskManagement.Api.DTOs;
 using TaskManagement.Api.Services;
 
+using Microsoft.AspNetCore.RateLimiting;
+
 namespace TaskManagement.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]
 [Authorize]
+[EnableRateLimiting("fixed")]
 public class TasksController : ControllerBase
 {
     private readonly ITaskService _service;

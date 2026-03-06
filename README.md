@@ -265,6 +265,8 @@ Store the `token` and send it as `Authorization: Bearer <token>` on all task req
 
 **Status values:** `"Pending"` · `"InProgress"` · `"Completed"`
 
+> 🛡️ **Rate Limiting:** All endpoints are protected by a strict Rate Limiter. Clients are limited to **100 requests per 1 minute**. Exceeding this limit will return an HTTP `429 Too Many Requests` status.
+
 ---
 
 ## Troubleshooting
