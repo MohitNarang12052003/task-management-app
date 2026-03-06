@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: task-management-api
+    runtime: docker
+    dockerfilePath: ./TaskManagement.Api/Dockerfile
+    dockerContext: ./TaskManagement.Api
+    envVars:
+      - key: MONGODB_URI
+        sync: false # set this as a secret in the Render dashboard
+      - key: ALLOWED_ORIGINS
+        value: "" # e.g. https://your-react-app.vercel.app
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production

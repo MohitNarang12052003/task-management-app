@@ -1,0 +1,19 @@
+## .NET build outputs
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+## Environment files (never commit secrets)
+.env
+*.env.local
+
+## Rider/JetBrains
+.idea/
+
+## VS Code
+.vscode/
+
+## macOS
+.DS_Store
