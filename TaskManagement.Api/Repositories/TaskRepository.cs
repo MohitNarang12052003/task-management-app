@@ -13,15 +13,11 @@ public class TaskRepository : ITaskRepository
         _tasks = database.GetCollection<TaskItem>(collectionName);
     }
 
-    public async Task<IEnumerable<TaskItem>> GetAllAsync()
-    {
-        return await _tasks.Find(_ => true).ToListAsync();
-    }
+    public async Task<IEnumerable<TaskItem>> GetAllAsync(string userId)
+        => await _tasks.Find(t => t.UserId == userId).ToListAsync();
 
-    public async Task<TaskItem?> GetByIdAsync(string id)
-    {
-        return await _tasks.Find(t => t.Id == id).FirstOrDefaultAsync();
-    }
+    public async Task<TaskItem?> GetByIdAsync(string id, string userId)
+        => await _tasks.Find(t => t.Id == id && t.UserId == userId).FirstOrDefaultAsync();
 
     public async Task<TaskItem> CreateAsync(TaskItem task)
     {
@@ -31,13 +27,13 @@ public class TaskRepository : ITaskRepository
 
     public async Task<bool> UpdateAsync(string id, TaskItem task)
     {
-        var result = await _tasks.ReplaceOneAsync(t => t.Id == id, task);
+        var result = await _tasks.ReplaceOneAsync(t => t.Id == id && t.UserId == task.UserId, task);
         return result.ModifiedCount > 0;
     }
 
-    public async Task<bool> DeleteAsync(string id)
+    public async Task<bool> DeleteAsync(string id, string userId)
     {
-        var result = await _tasks.DeleteOneAsync(t => t.Id == id);
+        var result = await _tasks.DeleteOneAsync(t => t.Id == id && t.UserId == userId);
         return result.DeletedCount > 0;
     }
 }

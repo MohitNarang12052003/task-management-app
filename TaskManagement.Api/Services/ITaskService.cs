@@ -5,9 +5,9 @@ namespace TaskManagement.Api.Services;
 
 public interface ITaskService
 {
-    Task<IEnumerable<TaskResponseDto>> GetAllTasksAsync();
-    Task<TaskResponseDto?> GetTaskByIdAsync(string id);
-    Task<TaskResponseDto> CreateTaskAsync(CreateTaskDto dto);
-    Task<bool> UpdateTaskAsync(string id, UpdateTaskDto dto);
-    Task<bool> DeleteTaskAsync(string id);
+    Task<IEnumerable<TaskResponseDto>> GetAllTasksAsync(string userId);
+    Task<TaskResponseDto?> GetTaskByIdAsync(string id, string userId);
+    Task<TaskResponseDto> CreateTaskAsync(CreateTaskDto dto, string userId);
+    Task<bool> UpdateTaskAsync(string id, UpdateTaskDto dto, string userId);
+    Task<bool> DeleteTaskAsync(string id, string userId);
 }

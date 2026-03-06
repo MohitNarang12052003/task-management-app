@@ -1,18 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { taskApi } from './api';
 import { useToast } from './useToast';
+import { useAuth } from './AuthContext';
+import AuthPage from './AuthPage';
 import './index.css';
 
 const STATUS_OPTIONS = ['Pending', 'InProgress', 'Completed'];
 const FILTER_OPTIONS = ['All', ...STATUS_OPTIONS];
-
-const STATUS_ICONS = { Pending: '🕐', InProgress: '⚡', Completed: '✅' };
+const STATUS_ICONS   = { Pending: '🕐', InProgress: '⚡', Completed: '✅' };
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-/* ── Toast Component ─────────────────────────────────────────── */
+/* ── Toast ─────────────────────────────────────────────────── */
 function ToastList({ toasts }) {
   return (
     <div className="toast-container">
@@ -26,7 +27,7 @@ function ToastList({ toasts }) {
   );
 }
 
-/* ── Add Task Form ───────────────────────────────────────────── */
+/* ── Add Task Form ─────────────────────────────────────────── */
 function AddTaskForm({ onAdd }) {
   const [form, setForm] = useState({ title: '', description: '', status: 'Pending' });
   const [loading, setLoading] = useState(false);
@@ -37,12 +38,8 @@ function AddTaskForm({ onAdd }) {
     e.preventDefault();
     if (!form.title.trim()) return;
     setLoading(true);
-    try {
-      await onAdd(form);
-      setForm({ title: '', description: '', status: 'Pending' });
-    } finally {
-      setLoading(false);
-    }
+    try { await onAdd(form); setForm({ title: '', description: '', status: 'Pending' }); }
+    finally { setLoading(false); }
   }
 
   return (
@@ -53,23 +50,14 @@ function AddTaskForm({ onAdd }) {
           <div className="form-group full-width">
             <label htmlFor="new-title">Title *</label>
             <input
-              id="new-title"
-              type="text"
-              placeholder="What needs to be done?"
-              value={form.title}
-              onChange={e => set('title', e.target.value)}
-              required
+              id="new-title" type="text" placeholder="What needs to be done?"
+              value={form.title} onChange={e => set('title', e.target.value)} required
             />
           </div>
           <div className="form-group full-width">
             <label htmlFor="new-desc">Description</label>
-            <textarea
-              id="new-desc"
-              rows={2}
-              placeholder="Add details (optional)"
-              value={form.description}
-              onChange={e => set('description', e.target.value)}
-            />
+            <textarea id="new-desc" rows={2} placeholder="Add details (optional)"
+              value={form.description} onChange={e => set('description', e.target.value)} />
           </div>
           <div className="form-group">
             <label htmlFor="new-status">Status</label>
@@ -88,14 +76,12 @@ function AddTaskForm({ onAdd }) {
   );
 }
 
-/* ── Task Card ───────────────────────────────────────────────── */
+/* ── Task Card ─────────────────────────────────────────────── */
 function TaskCard({ task, onUpdate, onDelete }) {
   const [editing, setEditing]   = useState(false);
   const [saving,  setSaving]    = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [form, setForm] = useState({
-    title: task.title, description: task.description, status: task.status
-  });
+  const [form, setForm] = useState({ title: task.title, description: task.description, status: task.status });
 
   function set(field, val) { setForm(f => ({ ...f, [field]: val })); }
 
@@ -117,17 +103,8 @@ function TaskCard({ task, onUpdate, onDelete }) {
     return (
       <div className="task-card editing">
         <div className="inline-edit">
-          <input
-            value={form.title}
-            onChange={e => set('title', e.target.value)}
-            placeholder="Title"
-          />
-          <textarea
-            rows={2}
-            value={form.description}
-            onChange={e => set('description', e.target.value)}
-            placeholder="Description"
-          />
+          <input value={form.title} onChange={e => set('title', e.target.value)} placeholder="Title" />
+          <textarea rows={2} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Description" />
           <select value={form.status} onChange={e => set('status', e.target.value)}>
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
@@ -156,12 +133,7 @@ function TaskCard({ task, onUpdate, onDelete }) {
       </div>
       <div className="task-actions">
         <button className="btn btn-icon" title="Edit" onClick={() => setEditing(true)}>✏️</button>
-        <button
-          className="btn btn-danger-ghost"
-          title="Delete"
-          onClick={handleDelete}
-          disabled={deleting}
-        >
+        <button className="btn btn-danger-ghost" title="Delete" onClick={handleDelete} disabled={deleting}>
           {deleting ? '⏳' : '🗑'}
         </button>
       </div>
@@ -169,35 +141,36 @@ function TaskCard({ task, onUpdate, onDelete }) {
   );
 }
 
-/* ── App ─────────────────────────────────────────────────────── */
+/* ── Main App ──────────────────────────────────────────────── */
 export default function App() {
+  const { user, logout, isAuthenticated } = useAuth();
   const [tasks,   setTasks]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter,  setFilter]  = useState('All');
   const { toasts, addToast }  = useToast();
 
   const fetchTasks = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await taskApi.getAll();
       setTasks(data);
     } catch {
-      addToast('Failed to load tasks. Is the API running?', 'error');
+      addToast('Failed to load tasks.', 'error');
     } finally {
       setLoading(false);
     }
   }, [addToast]);
 
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+  useEffect(() => {
+    if (isAuthenticated) fetchTasks();
+  }, [isAuthenticated, fetchTasks]);
 
   async function handleAdd(form) {
     try {
       const created = await taskApi.create(form);
       setTasks(prev => [created, ...prev]);
       addToast('Task created! 🎉');
-    } catch (e) {
-      addToast(e.message || 'Failed to create task', 'error');
-      throw e;
-    }
+    } catch (e) { addToast(e.message || 'Failed to create task', 'error'); throw e; }
   }
 
   async function handleUpdate(id, form) {
@@ -205,10 +178,7 @@ export default function App() {
       await taskApi.update(id, form);
       setTasks(prev => prev.map(t => t.id === id ? { ...t, ...form } : t));
       addToast('Task updated ✓');
-    } catch (e) {
-      addToast(e.message || 'Failed to update task', 'error');
-      throw e;
-    }
+    } catch (e) { addToast(e.message || 'Failed to update task', 'error'); throw e; }
   }
 
   async function handleDelete(id) {
@@ -216,14 +186,12 @@ export default function App() {
       await taskApi.delete(id);
       setTasks(prev => prev.filter(t => t.id !== id));
       addToast('Task deleted');
-    } catch (e) {
-      addToast(e.message || 'Failed to delete task', 'error');
-      throw e;
-    }
+    } catch (e) { addToast(e.message || 'Failed to delete task', 'error'); throw e; }
   }
 
-  const filtered = filter === 'All' ? tasks : tasks.filter(t => t.status === filter);
+  if (!isAuthenticated) return <AuthPage />;
 
+  const filtered = filter === 'All' ? tasks : tasks.filter(t => t.status === filter);
   const counts = {
     All:        tasks.length,
     Pending:    tasks.filter(t => t.status === 'Pending').length,
@@ -233,41 +201,39 @@ export default function App() {
 
   return (
     <div className="app-wrapper">
-      {/* Header */}
       <header className="header">
         <div className="logo">
           <div className="logo-icon">⚡</div>
           <h1>Task<span>Flow</span></h1>
         </div>
-        <div className="header-stats">
-          <span className="stat-badge">📋 <strong>{counts.Pending}</strong> Pending</span>
-          <span className="stat-badge">⚡ <strong>{counts.InProgress}</strong> In Progress</span>
-          <span className="stat-badge">✅ <strong>{counts.Completed}</strong> Done</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <div className="header-stats">
+            <span className="stat-badge">📋 <strong>{counts.Pending}</strong> Pending</span>
+            <span className="stat-badge">⚡ <strong>{counts.InProgress}</strong> In Progress</span>
+            <span className="stat-badge">✅ <strong>{counts.Completed}</strong> Done</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>👤 {user?.email}</span>
+            <button className="btn btn-ghost" onClick={logout} style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}>
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Add Task */}
       <AddTaskForm onAdd={handleAdd} />
 
-      {/* Filter Bar */}
       <div className="filter-bar">
         <span className="filter-label">Filter:</span>
         {FILTER_OPTIONS.map(f => (
-          <button
-            key={f}
-            className={`filter-btn${filter === f ? ' active' : ''}`}
-            onClick={() => setFilter(f)}
-          >
+          <button key={f} className={`filter-btn${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>
             {f} ({counts[f] ?? 0})
           </button>
         ))}
       </div>
 
-      {/* Task List */}
       {loading ? (
-        <div className="loading-dots">
-          <span /><span /><span />
-        </div>
+        <div className="loading-dots"><span /><span /><span /></div>
       ) : filtered.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">📭</div>
@@ -277,12 +243,7 @@ export default function App() {
       ) : (
         <div className="tasks-container">
           {filtered.map(task => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onUpdate={handleUpdate}
-              onDelete={handleDelete}
-            />
+            <TaskCard key={task.id} task={task} onUpdate={handleUpdate} onDelete={handleDelete} />
           ))}
         </div>
       )}

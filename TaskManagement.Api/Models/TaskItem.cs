@@ -26,6 +26,9 @@ public class TaskItem
     [BsonRepresentation(BsonType.String)]
     public TaskItemStatus Status { get; set; } = TaskItemStatus.Pending;
 
+    [BsonElement("userId")]
+    public string UserId { get; set; } = string.Empty;
+
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

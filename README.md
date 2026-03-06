@@ -1,6 +1,6 @@
 # TaskFlow — Full-Stack Task Management App
 
-A production-ready Task Management app built with **ASP.NET Core 8** (backend API) + **React + Vite** (frontend) + **MongoDB Atlas** (database), deployable on **Render.com** for free.
+A production-ready Task Management app built with **ASP.NET Core 8** + **React + Vite** + **MongoDB Atlas**, with **JWT authentication**, deployable on **Render.com** for free.
 
 ---
 
@@ -21,7 +21,7 @@ A production-ready Task Management app built with **ASP.NET Core 8** (backend AP
 ```
 ┌─────────────────────┐        ┌──────────────────────┐        ┌──────────────┐
 │   React Frontend    │  HTTP  │  ASP.NET Core 8 API  │ Driver │ MongoDB Atlas│
-│  (Vite Static Site) │◄──────►│  (Docker Web Service)│◄──────►│   (Free M0)  │
+│  (Vite Static Site) │◄──────►│  JWT Auth + CRUD     │◄──────►│   (Free M0)  │
 │  Render Static Site │        │  Render Web Service  │        │ cloud.mongodb│
 └─────────────────────┘        └──────────────────────┘        └──────────────┘
 ```
@@ -30,25 +30,35 @@ A production-ready Task Management app built with **ASP.NET Core 8** (backend AP
 
 ```
 Render App Deployment/
-├── render.yaml                        ← Render.com config
+├── render.yaml
 ├── .gitignore
-├── .env.example                       ← Env var reference
-├── PREREQUISITES.md                   ← Setup requirements
+├── PREREQUISITES.md
 ├── README.md
 ├── TaskManagement.Api/                ← ASP.NET Core 8 API
-│   ├── Controllers/TasksController.cs
-│   ├── Services/                      ← Business logic
-│   ├── Repositories/                  ← MongoDB data access
-│   ├── Models/TaskItem.cs
+│   ├── Controllers/
+│   │   ├── AuthController.cs          ← Register / Login
+│   │   └── TasksController.cs         ← CRUD (JWT protected)
+│   ├── Services/
+│   │   ├── AuthService.cs             ← BCrypt + JWT generation
+│   │   └── TaskService.cs
+│   ├── Repositories/
+│   │   ├── UserRepository.cs
+│   │   └── TaskRepository.cs          ← Per-user queries
+│   ├── Models/
+│   │   ├── User.cs
+│   │   └── TaskItem.cs
 │   ├── DTOs/                          ← Request/Response shapes
 │   ├── Middleware/GlobalExceptionMiddleware.cs
 │   ├── Program.cs
 │   └── Dockerfile
 └── Frontend/                          ← React + Vite
     ├── src/
-    │   ├── App.jsx                    ← Main UI component
-    │   ├── api.js                     ← API client
-    │   └── index.css                  ← Dark theme styles
+    │   ├── App.jsx                    ← Task UI (auth-gated)
+    │   ├── AuthPage.jsx               ← Login / Register
+    │   ├── AuthContext.jsx            ← Global auth state
+    │   ├── api.js                     ← Fetch client + Bearer token
+    │   ├── useToast.js
+    │   └── index.css
     └── .env                           ← VITE_API_URL
 ```
 
@@ -91,7 +101,6 @@ mongodb+srv://USERNAME:PASSWORD@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=m
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git
-cd "Render App Deployment"
 ```
 
 ### 2. Run the Backend API
@@ -102,19 +111,18 @@ cd "Render App Deployment"
 # If 'dotnet' is not recognized after installing .NET 8:
 $env:PATH += ";C:\Program Files\dotnet"
 
-# Set your MongoDB connection string
+# Required environment variables
 $env:MONGODB_URI = "mongodb+srv://USER:PASS@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority"
+$env:JWT_SECRET  = "your-secret-key-at-least-32-characters-long!"
 
-# Navigate to the API project
 cd TaskManagement.Api
-
-# Restore packages and run
-dotnet restore
 dotnet run
 ```
 
-API starts at: **http://localhost:8080**
-Swagger UI (interactive docs): **http://localhost:8080** (opens automatically)
+API starts at: **http://localhost:8080**  
+Swagger UI (interactive docs): **http://localhost:8080**
+
+> ⚠️ **All three must be set in the same terminal session before running.**
 
 ### 3. Run the Frontend
 
@@ -128,15 +136,15 @@ npm run dev
 
 Frontend starts at: **http://localhost:5173**
 
-### 4. Configure Frontend API URL
+You'll see a **Login / Register** screen. Register an account to start using the app.
 
-The `Frontend/.env` file tells the React app where the API is:
+### 4. Frontend API URL config
+
+`Frontend/.env`:
 
 ```env
 VITE_API_URL=http://localhost:8080
 ```
-
-> ⚠️ **Important:** This must be set to your **Render API URL** when deploying.
 
 ---
 
@@ -146,12 +154,9 @@ VITE_API_URL=http://localhost:8080
 
 ```powershell
 cd "Render App Deployment"
-
 git init
 git add .
 git commit -m "Initial commit"
-
-# Create a repo at github.com first, then:
 git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
 git branch -M main
 git push -u origin main
@@ -167,69 +172,63 @@ git push -u origin main
 
 ### Step 2 — Deploy the Backend API
 
-1. Go to [dashboard.render.com](https://dashboard.render.com) → **New + → Web Service**
-2. Connect GitHub → select your repository
+1. [dashboard.render.com](https://dashboard.render.com) → **New + → Web Service**
+2. Connect GitHub → select your repo
 3. Configure:
 
-   | Field          | Value                 |
-   | -------------- | --------------------- |
-   | Name           | `task-management-api` |
-   | Root Directory | `TaskManagement.Api`  |
-   | Runtime        | **Docker**            |
-   | Instance Type  | Free                  |
+   | Field          | Value                |
+   | -------------- | -------------------- |
+   | Root Directory | `TaskManagement.Api` |
+   | Runtime        | **Docker**           |
+   | Instance Type  | Free                 |
 
 4. Add Environment Variables:
 
    | Key                      | Value                                |
    | ------------------------ | ------------------------------------ |
    | `MONGODB_URI`            | Your MongoDB Atlas connection string |
+   | `JWT_SECRET`             | A long random string (min 32 chars)  |
    | `ASPNETCORE_ENVIRONMENT` | `Production`                         |
 
-5. Click **Deploy Web Service** → wait ~5 minutes
-6. ⭐ **Copy your API URL** (e.g. `https://task-management-api.onrender.com`)
+5. Click **Deploy Web Service** → ⭐ Copy your API URL
 
 ---
 
 ### Step 3 — Deploy the Frontend
 
-1. Render Dashboard → **New + → Static Site**
-2. Connect same GitHub repo
+1. Render → **New + → Static Site**
+2. Select same repo
 3. Configure:
 
-   | Field             | Value                      |
-   | ----------------- | -------------------------- |
-   | Name              | `task-management-frontend` |
-   | Root Directory    | `Frontend`                 |
-   | Build Command     | `npm run build`            |
-   | Publish Directory | `dist`                     |
+   | Field             | Value           |
+   | ----------------- | --------------- |
+   | Root Directory    | `Frontend`      |
+   | Build Command     | `npm run build` |
+   | Publish Directory | `dist`          |
 
 4. Add Environment Variable:
 
-   | Key            | Value                                            |
-   | -------------- | ------------------------------------------------ |
-   | `VITE_API_URL` | Your API URL from Step 2 **(no trailing slash)** |
+   | Key            | Value                                |
+   | -------------- | ------------------------------------ |
+   | `VITE_API_URL` | Your API URL **(no trailing slash)** |
 
-5. Click **Create Static Site** → wait ~2 minutes
-
----
-
-### Step 4 — Enable CORS for the Frontend
-
-Go to your **API service on Render** → Environment tab → Add:
-
-| Key               | Value                                                                    |
-| ----------------- | ------------------------------------------------------------------------ |
-| `ALLOWED_ORIGINS` | Your frontend URL (e.g. `https://task-management-frontend.onrender.com`) |
-
-Save → Render auto-redeploys the API.
+5. Click **Create Static Site**
 
 ---
 
-### Step 5 — Verify Everything Works
+### Step 4 — Enable CORS
 
-Open your frontend URL — you should see the TaskFlow UI.
+Render → API Service → Environment → Add:
 
-Test by creating a task. If it saves and appears in the list, your full stack is live! 🎉
+| Key               | Value             |
+| ----------------- | ----------------- |
+| `ALLOWED_ORIGINS` | Your frontend URL |
+
+---
+
+### Step 5 — Verify
+
+Open your frontend Render URL → Register → Create tasks → Logout → Login again. ✅
 
 ---
 
@@ -237,61 +236,59 @@ Test by creating a task. If it saves and appears in the list, your full stack is
 
 Base URL: `http://localhost:8080` (local) or your Render URL (production)
 
-| Method   | Endpoint          | Description    | Body                           |
-| -------- | ----------------- | -------------- | ------------------------------ |
-| `GET`    | `/api/tasks`      | Get all tasks  | —                              |
-| `GET`    | `/api/tasks/{id}` | Get task by ID | —                              |
-| `POST`   | `/api/tasks`      | Create task    | `{title, description, status}` |
-| `PUT`    | `/api/tasks/{id}` | Update task    | `{title, description, status}` |
-| `DELETE` | `/api/tasks/{id}` | Delete task    | —                              |
+### Auth Endpoints (public)
+
+| Method | Endpoint             | Description        | Body                |
+| ------ | -------------------- | ------------------ | ------------------- |
+| `POST` | `/api/auth/register` | Create new account | `{email, password}` |
+| `POST` | `/api/auth/login`    | Sign in            | `{email, password}` |
+
+**Auth response:**
+
+```json
+{ "token": "eyJ...", "email": "you@example.com", "userId": "65f..." }
+```
+
+Store the `token` and send it as `Authorization: Bearer <token>` on all task requests.
+
+---
+
+### Task Endpoints (🔒 JWT required)
+
+| Method   | Endpoint          | Description        | Body                           |
+| -------- | ----------------- | ------------------ | ------------------------------ |
+| `GET`    | `/api/tasks`      | Get all your tasks | —                              |
+| `GET`    | `/api/tasks/{id}` | Get task by ID     | —                              |
+| `POST`   | `/api/tasks`      | Create task        | `{title, description, status}` |
+| `PUT`    | `/api/tasks/{id}` | Update task        | `{title, description, status}` |
+| `DELETE` | `/api/tasks/{id}` | Delete task        | —                              |
 
 **Status values:** `"Pending"` · `"InProgress"` · `"Completed"`
-
-**Example request:**
-
-```json
-POST /api/tasks
-{
-  "title": "Build login page",
-  "description": "React form with validation",
-  "status": "Pending"
-}
-```
-
-**Example response:**
-
-```json
-{
-  "id": "65f1a2b3c4d5e6f7a8b9c0d1",
-  "title": "Build login page",
-  "description": "React form with validation",
-  "status": "Pending",
-  "createdAt": "2026-03-06T07:00:00Z"
-}
-```
 
 ---
 
 ## Troubleshooting
 
-| Problem                                 | Cause                       | Fix                                                                          |
-| --------------------------------------- | --------------------------- | ---------------------------------------------------------------------------- |
-| `dotnet not recognized`                 | PATH not updated            | Restart terminal or run `$env:PATH += ";C:\Program Files\dotnet"`            |
-| `The connection string '' is not valid` | `MONGODB_URI` not set       | Set env var in same terminal before `dotnet run`. No newlines in the string! |
-| `MongoAuthenticationException`          | Wrong credentials           | Re-check username/password in connection string                              |
-| `500 Internal Server Error` on Render   | Render IPs blocked by Atlas | Atlas → Network Access → Add `0.0.0.0/0`                                     |
-| Frontend shows "Failed to fetch"        | Wrong `VITE_API_URL`        | Check env var on Render → no trailing slash → redeploy frontend              |
-| `git push` returns 403                  | Wrong GitHub account saved  | Use Personal Access Token in remote URL                                      |
-| Render app slow first load              | Free tier spin-down         | Free tier sleeps after 15 min inactivity. First request takes ~30s           |
+| Problem                                 | Cause                       | Fix                                             |
+| --------------------------------------- | --------------------------- | ----------------------------------------------- |
+| `dotnet not recognized`                 | PATH not set                | `$env:PATH += ";C:\Program Files\dotnet"`       |
+| `The connection string '' is not valid` | `MONGODB_URI` not set       | Set it in the same terminal before `dotnet run` |
+| `JWT secret is not configured`          | `JWT_SECRET` not set        | Add `$env:JWT_SECRET = "your-secret..."`        |
+| `500` on Render                         | Render IPs blocked by Atlas | Atlas → Network Access → Add `0.0.0.0/0`        |
+| Frontend "Failed to fetch"              | Wrong `VITE_API_URL`        | No trailing slash → redeploy frontend           |
+| `401 Unauthorized`                      | Missing/expired token       | Log out and log back in                         |
+| `git push` returns 403                  | Wrong GitHub account        | Use Personal Access Token in remote URL         |
+| Render app slow to respond              | Free tier spin-down         | First request after ~15min sleep takes ~30s     |
 
 ---
 
 ## Tech Stack
 
-| Layer            | Technology           | Purpose              |
-| ---------------- | -------------------- | -------------------- |
-| Backend          | ASP.NET Core 8 (C#)  | REST API             |
-| Database         | MongoDB Atlas        | Cloud NoSQL database |
-| Frontend         | React 18 + Vite      | UI                   |
-| Containerization | Docker (multi-stage) | Backend deployment   |
-| Hosting          | Render.com           | Free cloud hosting   |
+| Layer            | Technology             |
+| ---------------- | ---------------------- |
+| Backend          | ASP.NET Core 8 (C#)    |
+| Authentication   | JWT + BCrypt           |
+| Database         | MongoDB Atlas          |
+| Frontend         | React 18 + Vite        |
+| Containerization | Docker (multi-stage)   |
+| Hosting          | Render.com (free tier) |
